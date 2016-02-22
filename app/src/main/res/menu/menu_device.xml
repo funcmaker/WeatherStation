@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools" tools:context=".DeviceActivity">
+
+    <item android:id="@+id/menu_refresh"
+        android:checkable="false"
+        android:orderInCategory="100"
+        android:showAsAction="ifRoom"
+        android:title="progress" />
+    <item android:id="@+id/start_action"
+        android:title="@string/menu_devices_scan"
+        android:orderInCategory="101"
+        android:showAsAction="ifRoom" />
+    <item android:id="@+id/stop_action"
+        android:title="@string/menu_devices_stop"
+        android:orderInCategory="102"
+        android:showAsAction="ifRoom" />
+</menu>

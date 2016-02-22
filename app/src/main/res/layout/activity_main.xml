@@ -1,0 +1,139 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
+    android:layout_height="match_parent" android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    tools:context=".MainActivity">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:id="@+id/text_temp"
+        android:layout_marginTop="120dp"
+        android:layout_alignParentStart="true"
+        android:layout_toStartOf="@+id/list_button" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:id="@+id/text_humid"
+        android:layout_marginTop="30dp"
+        android:layout_below="@+id/text_temp"
+        android:layout_alignParentStart="true"
+        android:layout_toStartOf="@+id/list_button"
+        android:layout_alignEnd="@+id/text_temp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:id="@+id/text_press"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="30dp"
+        android:layout_below="@+id/text_humid"
+        android:layout_toStartOf="@+id/list_button"
+        android:layout_alignEnd="@+id/text_temp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:id="@+id/text_serial"
+        android:layout_marginTop="30dp"
+        android:layout_below="@+id/text_press"
+        android:layout_alignEnd="@+id/text_temp"
+        android:layout_alignParentStart="true" />
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/edit_text_serial"
+        android:layout_below="@+id/text_serial"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="30dp"
+        android:layout_alignEnd="@+id/text_serial"
+        android:visibility="invisible" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="@string/label_device_name"
+        android:id="@+id/text_device_name"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="@string/label_state"
+        android:id="@+id/text_device_state"
+        android:layout_below="@+id/text_device_address"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:id="@+id/data_device_name"
+        android:layout_above="@+id/text_device_address"
+        android:layout_toEndOf="@+id/text_device_name" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:id="@+id/data_device_state"
+        android:layout_alignTop="@+id/text_device_state"
+        android:layout_toEndOf="@+id/text_device_state" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="@string/label_device_address"
+        android:id="@+id/text_device_address"
+        android:layout_below="@+id/text_device_name"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:id="@+id/data_device_address"
+        android:layout_above="@+id/data_device_state"
+        android:layout_toEndOf="@+id/text_device_address" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/text_serial"
+        android:id="@+id/list_button"
+        android:visibility="invisible"
+        android:layout_alignTop="@+id/main_button"
+        android:layout_alignParentEnd="true" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/menu_device_disconnect"
+        android:id="@+id/main_button"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentStart="true"
+        android:visibility="invisible" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Send"
+        android:id="@+id/send_button"
+        android:layout_alignTop="@+id/edit_text_serial"
+        android:layout_alignEnd="@+id/list_button"
+        android:visibility="invisible" />
+
+
+</RelativeLayout>
