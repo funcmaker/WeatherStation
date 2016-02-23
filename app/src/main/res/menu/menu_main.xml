@@ -1,8 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:id="@+id/main_action"
+    <item android:id="@+id/main_devices"
         android:title="@string/menu_main_devices"
-        android:orderInCategory="100"
-        android:showAsAction="ifRoom|withText"/>
+        android:icon="@drawable/ic_action_name"
+        android:orderInCategory="1"
+        android:showAsAction="ifRoom"/>
+
+    <item android:id="@+id/main_disconnect"
+        android:title="@string/device_disconnect"
+        android:orderInCategory="2" />
+
+    <item android:id="@+id/main_view_services"
+        android:title="@string/menu_main_view_services"
+        android:orderInCategory="3" />
 </menu>

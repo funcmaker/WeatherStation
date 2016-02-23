@@ -8,11 +8,11 @@
         android:showAsAction="ifRoom"
         android:title="progress" />
     <item android:id="@+id/start_action"
-        android:title="@string/menu_devices_scan"
+        android:title="@string/menu_device_scan"
         android:orderInCategory="101"
         android:showAsAction="ifRoom" />
     <item android:id="@+id/stop_action"
-        android:title="@string/menu_devices_stop"
+        android:title="@string/menu_device_stop"
         android:orderInCategory="102"
         android:showAsAction="ifRoom" />
 </menu>

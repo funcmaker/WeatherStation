@@ -29,7 +29,7 @@ public class DeviceActivity extends ListActivity {
     // Bluetooth request codes
     private static final int REQUEST_ENABLE_BT = 1;
 
-    // Scanning timeout
+    // Scanning timeout ms
     public static final long SCAN_PERIOD = 10000;
 
     private DeviceListAdapter mDeviceListAdapter;

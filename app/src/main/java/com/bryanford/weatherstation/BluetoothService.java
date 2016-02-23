@@ -17,7 +17,7 @@ import android.os.IBinder;
 import android.util.Log;
 import java.util.List;
 
-/**
+/*
  * Service for managing connection and data communication with a GATT server hosted on a
  * given Bluetooth LE device.
  */
@@ -158,7 +158,7 @@ public class BluetoothService extends Service {
             Log.d(TAG, String.format("Humid: %f", humid));
 
             intent = new Intent(HUMID_DATA);
-            intent.putExtra(TEMP_DATA, String.format("Temp: %.2f", temp));
+            intent.putExtra(TEMP_DATA, temp);
             intent.putExtra(HUMID_DATA, String.format("Humid: %.2f", humid));
             sendBroadcast(intent);
         }

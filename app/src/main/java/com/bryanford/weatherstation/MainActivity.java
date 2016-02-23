@@ -1,6 +1,7 @@
 package com.bryanford.weatherstation;
 
 import android.Manifest;
+import android.app.ActionBar;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -13,6 +14,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.support.v4.app.ActivityCompat;
@@ -21,8 +23,6 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -44,9 +44,8 @@ public class MainActivity extends Activity {
     private BluetoothAdapter btAdapter;
     private TextView tTemp, tHumid, tPress;
     private TextView tDevice, tAddress, tState;
-    private Button bDisButton, bViewListButton;
-    private Button bSend;
-    private EditText etSerial;
+    private ActionBar tBar;
+    private View tView;
 
     // Connection variables
     private HashMap<UUID, BluetoothGattService> mGattServiceMap = new HashMap<>();
@@ -63,6 +62,12 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        tBar = getActionBar();
+        if (tBar != null) {
+            tBar.setDisplayOptions(ActionBar.DISPLAY_SHOW_HOME | ActionBar.DISPLAY_SHOW_TITLE);
+            tBar.setIcon(R.mipmap.ic_launcher);
+        }
+
         // Use this check to determine whether BLE is supported on the device.  Then you can
         // selectively disable BLE-related features.
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
@@ -72,13 +77,13 @@ public class MainActivity extends Activity {
         }
 
         // Get the UI components
+        tView = findViewById(R.id.main_layout);
         tTemp = (TextView) findViewById(R.id.text_temp);
         tHumid = (TextView) findViewById(R.id.text_humid);
         tPress = (TextView) findViewById(R.id.text_press);
         tDevice = (TextView) findViewById(R.id.data_device_name);
         tAddress = (TextView) findViewById(R.id.data_device_address);
         tState = (TextView) findViewById(R.id.data_device_state);
-        etSerial = (EditText) findViewById(R.id.edit_text_serial);
 
         // Set the default values for the text views
         clearDisplayValues();
@@ -146,6 +151,15 @@ public class MainActivity extends Activity {
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
+
+        if (mConnected) {
+            menu.findItem(R.id.main_disconnect).setVisible(true);
+            menu.findItem(R.id.main_view_services).setVisible(true);
+        } else {
+            menu.findItem(R.id.main_disconnect).setVisible(false);
+            menu.findItem(R.id.main_view_services).setVisible(false);
+        }
+
         return true;
     }
 
@@ -158,10 +172,14 @@ public class MainActivity extends Activity {
         int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
-        if (id == R.id.main_action) {
+        if (id == R.id.main_devices) {
             deviceIntent = new Intent(this, DeviceActivity.class);
             startActivityForResult(deviceIntent, REQUEST_DEVICE);
             return true;
+        } else  if (id == R.id.main_disconnect) {
+            runOnUiThread(onDisconnect_Click);
+        } else if (id == R.id.main_view_services) {
+            runOnUiThread(onViewList_Click);
         } else if (id == android.R.id.home) {
             setContentView(R.layout.activity_main);
         }
@@ -200,6 +218,7 @@ public class MainActivity extends Activity {
         }
     }
 
+    /* Needed to request location permissions for the app (New requirement to 6.0) */
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         switch (requestCode) {
@@ -210,15 +229,12 @@ public class MainActivity extends Activity {
 
                     // permission was granted, yay! Do the
                     // contacts-related task you need to do.
-
                 } else {
-
                     // permission denied, boo! Disable the
                     // functionality that depends on this permission.
                 }
                 return;
             }
-
             // other 'case' lines to check for other
             // permissions this app might request
         }
@@ -250,17 +266,12 @@ public class MainActivity extends Activity {
     private Runnable updateOnConnection = new Runnable() {
         @Override
         public void run() {
-            bDisButton = (Button) findViewById(R.id.main_button);
-            bDisButton.setVisibility(View.VISIBLE);
-            bDisButton.setOnClickListener(onDisconnect_Click);
-
-            bViewListButton = (Button) findViewById(R.id.list_button);
-            bViewListButton.setVisibility(View.VISIBLE);
-            bViewListButton.setOnClickListener(onViewList_Click);
-
             tDevice.setText(" " + mDeviceName);
             tAddress.setText(" " + mDeviceAddress);
             tState.setText(" " + mConnected);
+
+            // Reset the option menu
+            invalidateOptionsMenu();
         }
     };
 
@@ -272,24 +283,8 @@ public class MainActivity extends Activity {
             unbindService(mServiceConnection);
             clearDisplayValues();
 
-            // Disable the buttons
-            bDisButton.setVisibility(View.INVISIBLE);
-            bViewListButton.setVisibility(View.INVISIBLE);
-
-            if (bSend != null && etSerial != null) {
-                bSend.setVisibility(View.INVISIBLE);
-                etSerial.setVisibility(View.INVISIBLE);
-            }
-        }
-    };
-
-    private Runnable enableSerialUI = new Runnable() {
-        @Override
-        public void run() {
-            bSend = (Button) findViewById(R.id.send_button);
-            bSend.setOnClickListener(onSendSerial_Click);
-            bSend.setVisibility(View.VISIBLE);
-            etSerial.setVisibility(View.VISIBLE);
+            // Reset the option menu
+            invalidateOptionsMenu();
         }
     };
 
@@ -325,11 +320,6 @@ public class MainActivity extends Activity {
                         // Enable characteristic
                         characteristic.setValue(new byte[]{0x01});
                         mBluetoothService.writeCharacteristic(characteristic);
-                    } else if (service.getUuid().equals(DeviceTags.UART_SERVICE)) {
-                        characteristic = service.getCharacteristic(DeviceTags.UART_CHAR);
-
-                        mBluetoothService.setCharacteristicNotification(characteristic, true);
-                        runOnUiThread(enableSerialUI);
                     } else if (service.getUuid().equals(DeviceTags.GENERIC_SERVICE)) {
                         characteristic = service.getCharacteristic(DeviceTags.SERVICE_CHANGED_CHAR);
                         mBluetoothService.setCharacteristicNotification(characteristic, true);
@@ -343,26 +333,21 @@ public class MainActivity extends Activity {
                     }
                 });
             } else if (BluetoothService.HUMID_DATA.equals(action)) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        tTemp.setText(intent.getStringExtra(BluetoothService.TEMP_DATA));
-                        tHumid.setText(intent.getStringExtra(BluetoothService.HUMID_DATA));
-                    }
-                });
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                double temp = intent.getDoubleExtra(BluetoothService.TEMP_DATA, 0.d);
+
+                                tTemp.setText(String.format("Temp: %.2f", temp));
+                                tHumid.setText(intent.getStringExtra(BluetoothService.HUMID_DATA));
+                                adjustViewColorByTemp(tView, temp);
+                            }
+                        });
             } else if (BluetoothService.PRESS_DATA.equals(action)) {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         tPress.setText(intent.getStringExtra(BluetoothService.PRESS_DATA));
-                    }
-                });
-
-            } else if (BluetoothService.RX_DATA.equals(action)) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        etSerial.setText(intent.getStringExtra(BluetoothService.RX_DATA));
                     }
                 });
             } else if (BluetoothService.ACTION_DATA_AVAILABLE.equals(action)) {
@@ -376,33 +361,20 @@ public class MainActivity extends Activity {
         }
     };
 
-    private View.OnClickListener onDisconnect_Click = new View.OnClickListener() {
+    private Runnable onDisconnect_Click = new Runnable() {
         @Override
-        public void onClick(View v) {
+        public void run() {
             // Cleanup the service connection and hide the disconnect button
             mBluetoothService.disconnect();
         }
     };
 
-    private View.OnClickListener onViewList_Click = new View.OnClickListener() {
+    private Runnable onViewList_Click = new Runnable() {
         @Override
-        public void onClick(View v) {
+        public void run() {
             // Display all of the services available
             Intent serviceIntent = new Intent(MainActivity.this, ServiceListActivity.class);
             startActivity(serviceIntent);
-        }
-    };
-
-    private View.OnClickListener onSendSerial_Click = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            final byte data[] = etSerial.getText().toString().getBytes();
-            BluetoothGattCharacteristic serialChar = mGattServiceMap
-                    .get(DeviceTags.UART_SERVICE).getCharacteristic(DeviceTags.UART_CHAR);
-
-            serialChar.setValue(data);
-            mBluetoothService.writeCharacteristic(serialChar);
-            etSerial.setText("");
         }
     };
 
@@ -419,12 +391,38 @@ public class MainActivity extends Activity {
     }
 
     private void clearDisplayValues() {
+        tView.setBackgroundColor(Color.WHITE);
         tTemp.setText("");
         tHumid.setText("");
         tPress.setText("");
         tDevice.setText("");
         tAddress.setText("");
-        etSerial.setText("");
         tState.setText(" " + mConnected);
+    }
+
+    private void adjustViewColorByTemp(View view, double temp) {
+        int alpha = 225;
+        int red = 0;
+        int grn = 0;
+        int blu = 0;
+
+        if (temp > 100.d) {
+            red = 255;
+        } else if (temp > 90.d) {
+            red = 255; grn = 30;
+        } else if (temp > 80.d) {
+            red = 255; grn = 100;
+        } else if (temp > 70.d) {
+            red = 255; grn = 200;
+        } else if (temp > 60.d) {
+            grn = 225;
+        } else if (temp > 50.d) {
+            grn = 225; blu = 150;
+        } else if (temp > 40.d) {
+            grn = 175; blu = 225;
+        } else if (temp > 32.d) {
+            blu = 255;
+        }
+        view.setBackgroundColor(Color.argb(alpha, red, grn, blu));
     }
 }

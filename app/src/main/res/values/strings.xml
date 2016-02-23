@@ -2,13 +2,15 @@
     <string name="app_name">Weather Station</string>
     <string name="activity_device">Device List</string>
     <string name="activity_service_list">Service List</string>
+    <string name="activity_device_connect">Device Connect</string>
+
     <string name="action_settings">Settings</string>
     <string name="dashes">----</string>
 
     <!-- BLE example strings -->
     <string name="label_data">Data:</string>
-    <string name="label_device_address">Device Address:</string>
-    <string name="label_device_name">Device Name:</string>
+    <string name="label_device_address">Address:</string>
+    <string name="label_device_name">Device:</string>
     <string name="label_state">State: </string>
 
     <string name="connected">Connected</string>
@@ -22,18 +24,12 @@
     <string name="list_item_device">Device List</string>
     <string name="no_data">No data</string>
 
-    <!-- Activity Strings -->
-    <string name="title_devices">BLE Device Scan</string>
-    <string name="activity_device_connect">Device Connect</string>
-
     <!-- Menu Strings -->
+    <string name="menu_main_view_services">View Services</string>
     <string name="menu_main_devices">Devices</string>
-    <string name="menu_devices_scan">Scan</string>
-    <string name="menu_devices_stop">Stop</string>
-    <string name="menu_device_connect">Connect</string>
-    <string name="menu_device_disconnect">Disconnect</string>
+    <string name="menu_device_scan">Scan</string>
+    <string name="menu_device_stop">Stop</string>
 
-    <!-- Defaults -->
-    <string name="hello_world">Hello world!</string>
-    <string name="text_serial">View Services</string>
+    <string name="device_connect">Connect</string>
+    <string name="device_disconnect">Disconnect</string>
 </resources>
