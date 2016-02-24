@@ -1,8 +1,10 @@
 <resources>
     <string name="app_name">Weather Station</string>
+    <string name="app_id">794B7BBF</string>
     <string name="activity_device">Device List</string>
     <string name="activity_service_list">Service List</string>
     <string name="activity_device_connect">Device Connect</string>
+    <string name="namespace">urn:x-cast:com.google.cast.sample.helloworld</string>
 
     <string name="action_settings">Settings</string>
     <string name="dashes">----</string>
@@ -32,4 +34,5 @@
 
     <string name="device_connect">Connect</string>
     <string name="device_disconnect">Disconnect</string>
+    <string name="menu_main_playon">Play on...</string>
 </resources>

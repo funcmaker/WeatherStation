@@ -159,7 +159,7 @@ public class BluetoothService extends Service {
 
             intent = new Intent(HUMID_DATA);
             intent.putExtra(TEMP_DATA, temp);
-            intent.putExtra(HUMID_DATA, String.format("Humid: %.2f", humid));
+            intent.putExtra(HUMID_DATA, humid);
             sendBroadcast(intent);
         }
         else if (DeviceTags.UART_CHAR.equals((characteristic.getUuid()))){

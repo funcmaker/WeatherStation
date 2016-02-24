@@ -13,26 +13,32 @@
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:id="@+id/text_temp"
+        android:text="Ambient Temperature"
+        android:textStyle="bold"
         android:layout_alignParentTop="true"
-        android:layout_alignParentStart="true" />
+        android:layout_centerHorizontal="true"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:id="@+id/text_humid"
-        android:layout_marginTop="30dp"
+        android:layout_marginTop="82dp"
+        android:textStyle="bold"
+        android:text="Humidity"
         android:layout_below="@+id/text_temp"
-        android:layout_alignParentStart="true" />
+        android:layout_centerHorizontal="true" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:id="@+id/text_press"
-        android:layout_alignParentStart="true"
-        android:layout_marginTop="30dp"
-        android:layout_below="@+id/text_humid" />
+        android:layout_marginTop="90dp"
+        android:text="Pressure"
+        android:textStyle="bold"
+        android:layout_below="@+id/text_humid"
+        android:layout_centerHorizontal="true" />
 
     <TextView
         android:layout_width="wrap_content"
@@ -97,6 +103,36 @@
         android:textSize="10sp"
         android:layout_alignParentBottom="true"
         android:layout_toEndOf="@+id/text_device_state" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="@string/dashes"
+        android:id="@+id/data_ambient_temp"
+        android:layout_marginTop="25dp"
+        android:layout_below="@+id/text_temp"
+        android:layout_centerHorizontal="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="@string/dashes"
+        android:id="@+id/data_humid"
+        android:layout_marginTop="25dp"
+        android:layout_below="@+id/text_humid"
+        android:layout_centerHorizontal="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="@string/dashes"
+        android:id="@+id/data_press"
+        android:layout_marginTop="25dp"
+        android:layout_below="@+id/text_press"
+        android:layout_centerHorizontal="true" />
 
 
 </RelativeLayout>

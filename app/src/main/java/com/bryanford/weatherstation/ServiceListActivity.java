@@ -27,7 +27,6 @@ public class ServiceListActivity extends ListActivity {
     private BluetoothService mBluetoothService;
     private String gattServicesNames[];
     private ListAdapter listAdapter;
-    private boolean mConnected;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

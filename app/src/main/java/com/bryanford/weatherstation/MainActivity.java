@@ -1,7 +1,23 @@
 package com.bryanford.weatherstation;
 
+import com.google.android.gms.cast.ApplicationMetadata;
+import com.google.android.gms.cast.Cast;
+import com.google.android.gms.cast.Cast.MessageReceivedCallback;
+import com.google.android.gms.cast.CastDevice;
+import com.google.android.gms.cast.CastMediaControlIntent;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
+
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.app.MediaRouteActionProvider;
+import android.support.v7.media.MediaRouteSelector;
+import android.support.v7.media.MediaRouter;
+import android.support.v7.media.MediaRouter.RouteInfo;
+import android.support.v4.view.MenuItemCompat;
 import android.Manifest;
-import android.app.ActionBar;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -26,11 +42,12 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
     // Logging
     private static final String TAG = MainActivity.class.getSimpleName();
 
@@ -41,8 +58,9 @@ public class MainActivity extends Activity {
 
     private String mDeviceName;
     private String mDeviceAddress;
+    private String mSessionId;
     private BluetoothAdapter btAdapter;
-    private TextView tTemp, tHumid, tPress;
+    private TextView tTemp, tHumid, tPress, tTempText;
     private TextView tDevice, tAddress, tState;
     private ActionBar tBar;
     private View tView;
@@ -51,7 +69,20 @@ public class MainActivity extends Activity {
     private HashMap<UUID, BluetoothGattService> mGattServiceMap = new HashMap<>();
     private List<BluetoothGattService> mGattServices;
     private BluetoothService mBluetoothService;
-    private boolean mConnected = false;
+
+    // Media Router variables
+    private MediaRouter.Callback mMediaRouterCallback;
+    private MediaRouteSelector mMediaRouteSelector;
+    private CastDevice mSelectedDevice;
+    private MediaRouter mMediaRouter;
+    private GoogleApiClient mApiClient;
+    private Cast.Listener mCastListener;
+    private GoogleApiClient.ConnectionCallbacks mConnectionCallbacks;
+    private ConnectionFailedListener mConnectionFailedListener;
+    private WeatherStationChannel mWeatherStationChannel;
+    private boolean mApplicationStarted = false;
+    private boolean mWaitingForReconnect = false;
+    private boolean mBtConnected = false;
 
 
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
@@ -62,7 +93,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        tBar = getActionBar();
+        tBar = getSupportActionBar();
         if (tBar != null) {
             tBar.setDisplayOptions(ActionBar.DISPLAY_SHOW_HOME | ActionBar.DISPLAY_SHOW_TITLE);
             tBar.setIcon(R.mipmap.ic_launcher);
@@ -78,9 +109,10 @@ public class MainActivity extends Activity {
 
         // Get the UI components
         tView = findViewById(R.id.main_layout);
-        tTemp = (TextView) findViewById(R.id.text_temp);
-        tHumid = (TextView) findViewById(R.id.text_humid);
-        tPress = (TextView) findViewById(R.id.text_press);
+        tTemp = (TextView) findViewById(R.id.data_ambient_temp);
+        tTempText = (TextView) findViewById(R.id.text_temp);
+        tHumid = (TextView) findViewById(R.id.data_humid);
+        tPress = (TextView) findViewById(R.id.data_press);
         tDevice = (TextView) findViewById(R.id.data_device_name);
         tAddress = (TextView) findViewById(R.id.data_device_address);
         tState = (TextView) findViewById(R.id.data_device_state);
@@ -125,6 +157,20 @@ public class MainActivity extends Activity {
             }
         }
 
+        mMediaRouter = MediaRouter.getInstance(getApplicationContext());
+        mMediaRouteSelector = new MediaRouteSelector.Builder()
+                .addControlCategory(CastMediaControlIntent.categoryForCast(getResources()
+                        .getString(R.string.app_id))).build();
+        mMediaRouterCallback = new MediaRouterCallback();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        // Start media router discovery
+        mMediaRouter.addCallback(mMediaRouteSelector, mMediaRouterCallback,
+                MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY);
     }
 
     @Override
@@ -152,7 +198,13 @@ public class MainActivity extends Activity {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
 
-        if (mConnected) {
+        MenuItem mediaRouterMenuItem = menu.findItem(R.id.media_route_menu_item);
+        MediaRouteActionProvider mediaRouteActionProvider
+                = (MediaRouteActionProvider) MenuItemCompat
+                .getActionProvider(mediaRouterMenuItem);
+        mediaRouteActionProvider.setRouteSelector(mMediaRouteSelector);
+
+        if (mBtConnected) {
             menu.findItem(R.id.main_disconnect).setVisible(true);
             menu.findItem(R.id.main_view_services).setVisible(true);
         } else {
@@ -183,8 +235,7 @@ public class MainActivity extends Activity {
         } else if (id == android.R.id.home) {
             setContentView(R.layout.activity_main);
         }
-
-        return super.onOptionsItemSelected(item);
+        return true;
     }
 
     @Override
@@ -227,22 +278,265 @@ public class MainActivity extends Activity {
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 
-                    // permission was granted, yay! Do the
-                    // contacts-related task you need to do.
+                    // permission was granted, yay!
                 } else {
                     // permission denied, boo! Disable the
                     // functionality that depends on this permission.
                 }
                 return;
             }
-            // other 'case' lines to check for other
-            // permissions this app might request
         }
 
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
-    // Service management
+    /**
+     * Callback for MediaRouter events
+     */
+    private class MediaRouterCallback extends MediaRouter.Callback {
+
+        @Override
+        public void onRouteSelected(MediaRouter router, RouteInfo info) {
+            Log.d(TAG, "onRouteSelected");
+            // Handle the user route selection.
+            mSelectedDevice = CastDevice.getFromBundle(info.getExtras());
+
+            launchReceiver();
+        }
+
+        @Override
+        public void onRouteUnselected(MediaRouter router, RouteInfo info) {
+            Log.d(TAG, "onRouteUnselected: info=" + info);
+            teardown(false);
+            mSelectedDevice = null;
+        }
+    }
+
+    /**
+     * Start the receiver app
+     */
+    private void launchReceiver() {
+        try {
+            mCastListener = new Cast.Listener() {
+
+                @Override
+                public void onApplicationDisconnected(int errorCode) {
+                    Log.d(TAG, "application has stopped");
+                    teardown(true);
+                }
+
+            };
+            // Connect to Google Play services
+            mConnectionCallbacks = new ConnectionCallbacks();
+            mConnectionFailedListener = new ConnectionFailedListener();
+            Cast.CastOptions.Builder apiOptionsBuilder = Cast.CastOptions
+                    .builder(mSelectedDevice, mCastListener);
+            mApiClient = new GoogleApiClient.Builder(this)
+                    .addApi(Cast.API, apiOptionsBuilder.build())
+                    .addConnectionCallbacks(mConnectionCallbacks)
+                    .addOnConnectionFailedListener(mConnectionFailedListener)
+                    .build();
+
+            mApiClient.connect();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed launchReceiver", e);
+        }
+    }
+
+    /**
+     * Google Play services callbacks
+     */
+    private class ConnectionCallbacks implements
+            GoogleApiClient.ConnectionCallbacks {
+
+        @Override
+        public void onConnected(Bundle connectionHint) {
+            Log.d(TAG, "onConnected");
+
+            if (mApiClient == null) {
+                // We got disconnected while this runnable was pending
+                // execution.
+                return;
+            }
+
+            try {
+                if (mWaitingForReconnect) {
+                    mWaitingForReconnect = false;
+
+                    // Check if the receiver app is still running
+                    if ((connectionHint != null)
+                            && connectionHint.getBoolean(Cast.EXTRA_APP_NO_LONGER_RUNNING)) {
+                        Log.d(TAG, "App  is no longer running");
+                        teardown(true);
+                    } else {
+                        // Re-create the custom message channel
+                        try {
+                            Cast.CastApi.setMessageReceivedCallbacks(
+                                    mApiClient,
+                                    mWeatherStationChannel.getNamespace(),
+                                    mWeatherStationChannel);
+                        } catch (IOException e) {
+                            Log.e(TAG, "Exception while creating channel", e);
+                        }
+                    }
+                } else {
+                    // Launch the receiver app
+                    Cast.CastApi.launchApplication(mApiClient, getString(R.string.app_id), false)
+                            .setResultCallback(
+                                    new ResultCallback<Cast.ApplicationConnectionResult>() {
+                                        @Override
+                                        public void onResult(
+                                                Cast.ApplicationConnectionResult result) {
+                                            Status status = result.getStatus();
+                                            Log.d(TAG,
+                                                    "ApplicationConnectionResultCallback.onResult:"
+                                                            + status.getStatusCode());
+                                            if (status.isSuccess()) {
+                                                ApplicationMetadata applicationMetadata = result
+                                                        .getApplicationMetadata();
+                                                mSessionId = result.getSessionId();
+                                                String applicationStatus = result
+                                                        .getApplicationStatus();
+                                                boolean wasLaunched = result.getWasLaunched();
+                                                Log.d(TAG, "application name: "
+                                                        + applicationMetadata.getName()
+                                                        + ", status: " + applicationStatus
+                                                        + ", sessionId: " + mSessionId
+                                                        + ", wasLaunched: " + wasLaunched);
+                                                mApplicationStarted = true;
+
+                                                // Create the custom message
+                                                // channel
+                                                mWeatherStationChannel = new WeatherStationChannel();
+                                                try {
+                                                    Cast.CastApi.setMessageReceivedCallbacks(
+                                                            mApiClient,
+                                                            mWeatherStationChannel.getNamespace(),
+                                                            mWeatherStationChannel);
+                                                } catch (IOException e) {
+                                                    Log.e(TAG, "Exception while creating channel",
+                                                            e);
+                                                }
+
+                                                // set the initial instructions
+                                                // on the receiver
+                                                sendMessage(getString(R.string.app_name));
+                                            } else {
+                                                Log.e(TAG, "application could not launch");
+                                                teardown(true);
+                                            }
+                                        }
+                                    });
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to launch application", e);
+            }
+        }
+
+        @Override
+        public void onConnectionSuspended(int cause) {
+            Log.d(TAG, "onConnectionSuspended");
+            mWaitingForReconnect = true;
+        }
+    }
+
+    /**
+     * Google Play services callbacks
+     */
+    private class ConnectionFailedListener implements
+            GoogleApiClient.OnConnectionFailedListener {
+
+        @Override
+        public void onConnectionFailed(ConnectionResult result) {
+            Log.e(TAG, "onConnectionFailed ");
+
+            teardown(false);
+        }
+    }
+
+    /**
+     * Tear down the connection to the receiver
+     */
+    private void teardown(boolean selectDefaultRoute) {
+        Log.d(TAG, "teardown");
+        if (mApiClient != null) {
+            if (mApplicationStarted) {
+                if (mApiClient.isConnected() || mApiClient.isConnecting()) {
+                    try {
+                        Cast.CastApi.stopApplication(mApiClient, mSessionId);
+                        if (mWeatherStationChannel != null) {
+                            Cast.CastApi.removeMessageReceivedCallbacks(
+                                    mApiClient,
+                                    mWeatherStationChannel.getNamespace());
+                            mWeatherStationChannel = null;
+                        }
+                    } catch (IOException e) {
+                        Log.e(TAG, "Exception while removing channel", e);
+                    }
+                    mApiClient.disconnect();
+                }
+                mApplicationStarted = false;
+            }
+            mApiClient = null;
+        }
+        if (selectDefaultRoute) {
+            mMediaRouter.selectRoute(mMediaRouter.getDefaultRoute());
+        }
+        mSelectedDevice = null;
+        mWaitingForReconnect = false;
+        mSessionId = null;
+    }
+
+    /**
+     * Send a text message to the receiver
+     */
+    private void sendMessage(String message) {
+        if (mApiClient != null && mWeatherStationChannel != null) {
+            try {
+                Cast.CastApi.sendMessage(mApiClient,
+                        mWeatherStationChannel.getNamespace(), message).setResultCallback(
+                        new ResultCallback<Status>() {
+                            @Override
+                            public void onResult(Status result) {
+                                if (!result.isSuccess()) {
+                                    Log.e(TAG, "Sending message failed");
+                                }
+                            }
+                        });
+            } catch (Exception e) {
+                Log.e(TAG, "Exception while sending message", e);
+            }
+        } else {
+            Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Custom message channel
+     */
+    class WeatherStationChannel implements MessageReceivedCallback {
+
+        /**
+         * @return custom namespace
+         */
+        public String getNamespace() {
+            return getString(R.string.namespace);
+        }
+
+        /*
+         * Receive message from the receiver app
+         */
+        @Override
+        public void onMessageReceived(CastDevice castDevice, String namespace,
+                                      String message) {
+            Log.d(TAG, "onMessageReceived: " + message);
+        }
+
+    }
+
+    /**
+     * Service management
+     */
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
@@ -263,38 +557,16 @@ public class MainActivity extends Activity {
         }
     };
 
-    private Runnable updateOnConnection = new Runnable() {
-        @Override
-        public void run() {
-            tDevice.setText(" " + mDeviceName);
-            tAddress.setText(" " + mDeviceAddress);
-            tState.setText(" " + mConnected);
-
-            // Reset the option menu
-            invalidateOptionsMenu();
-        }
-    };
-
-    private Runnable updateOnDisconnect = new Runnable() {
-        @Override
-        public void run() {
-            mConnected = false;
-            unregisterReceiver(mGattUpdateReceiver);
-            unbindService(mServiceConnection);
-            clearDisplayValues();
-
-            // Reset the option menu
-            invalidateOptionsMenu();
-        }
-    };
-
+    /**
+     * Service receiver to get updates from the BLE GATT device server
+     */
     private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, final Intent intent) {
             final String action = intent.getAction();
 
             if (BluetoothService.ACTION_GATT_CONNECTED.equals(action)) {
-                mConnected = true;
+                mBtConnected = true;
                 runOnUiThread(updateOnConnection);
             } else if (BluetoothService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 runOnUiThread(updateOnDisconnect);
@@ -326,38 +598,62 @@ public class MainActivity extends Activity {
                     }
                 }
             } else if (BluetoothService.TEMP_DATA.equals(action)) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        tTemp.setText(intent.getStringExtra(BluetoothService.TEMP_DATA));
-                    }
-                });
+//                runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        tTemp.setText(intent.getStringExtra(BluetoothService.TEMP_DATA));
+//                    }
+//                });
             } else if (BluetoothService.HUMID_DATA.equals(action)) {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
                                 double temp = intent.getDoubleExtra(BluetoothService.TEMP_DATA, 0.d);
+                                double humid = intent.getDoubleExtra(BluetoothService.HUMID_DATA, 0.d);
 
-                                tTemp.setText(String.format("Temp: %.2f", temp));
-                                tHumid.setText(intent.getStringExtra(BluetoothService.HUMID_DATA));
+                                tTemp.setText(String.format("%.0f %cF", temp, (char)0x00B0));
+                                tHumid.setText(String.format("%.2f %%", humid));
                                 adjustViewColorByTemp(tView, temp);
                             }
                         });
             } else if (BluetoothService.PRESS_DATA.equals(action)) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        tPress.setText(intent.getStringExtra(BluetoothService.PRESS_DATA));
-                    }
-                });
+//                runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        tPress.setText(intent.getStringExtra(BluetoothService.PRESS_DATA));
+//                    }
+//                });
             } else if (BluetoothService.ACTION_DATA_AVAILABLE.equals(action)) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        tTemp.setText(intent.getStringExtra(BluetoothService.RX_DATA));
-                    }
-                });
+
             }
+        }
+    };
+
+    /**
+     * Follows a list of runnable statements to be called on the UI thread
+     */
+    private Runnable updateOnConnection = new Runnable() {
+        @Override
+        public void run() {
+            tDevice.setText(" " + mDeviceName);
+            tAddress.setText(" " + mDeviceAddress);
+            tState.setText(" " + mBtConnected);
+
+            // Reset the option menu
+            invalidateOptionsMenu();
+        }
+    };
+
+    private Runnable updateOnDisconnect = new Runnable() {
+        @Override
+        public void run() {
+            mBtConnected = false;
+            unregisterReceiver(mGattUpdateReceiver);
+            unbindService(mServiceConnection);
+            clearDisplayValues();
+
+            // Reset the option menu
+            invalidateOptionsMenu();
         }
     };
 
@@ -366,6 +662,11 @@ public class MainActivity extends Activity {
         public void run() {
             // Cleanup the service connection and hide the disconnect button
             mBluetoothService.disconnect();
+
+            // Wait until we have successful disconnect from the device
+            while (mBluetoothService != null) {
+                mBluetoothService = null;
+            }
         }
     };
 
@@ -383,7 +684,6 @@ public class MainActivity extends Activity {
         intentFilter.addAction(BluetoothService.ACTION_GATT_CONNECTED);
         intentFilter.addAction(BluetoothService.ACTION_GATT_DISCONNECTED);
         intentFilter.addAction(BluetoothService.ACTION_GATT_SERVICES_DISCOVERED);
-        intentFilter.addAction(BluetoothService.RX_DATA);
         intentFilter.addAction(BluetoothService.HUMID_DATA);
         intentFilter.addAction(BluetoothService.TEMP_DATA);
         intentFilter.addAction(BluetoothService.PRESS_DATA);
@@ -391,13 +691,13 @@ public class MainActivity extends Activity {
     }
 
     private void clearDisplayValues() {
-        tView.setBackgroundColor(Color.WHITE);
-        tTemp.setText("");
-        tHumid.setText("");
-        tPress.setText("");
+        tTempText.setTextColor(Color.parseColor("#FFFFFF"));
+        tTemp.setText(R.string.dashes);
+        tHumid.setText(R.string.dashes);
+        tPress.setText(R.string.dashes);
         tDevice.setText("");
         tAddress.setText("");
-        tState.setText(" " + mConnected);
+        tState.setText(" " + mBtConnected);
     }
 
     private void adjustViewColorByTemp(View view, double temp) {
@@ -423,6 +723,6 @@ public class MainActivity extends Activity {
         } else if (temp > 32.d) {
             blu = 255;
         }
-        view.setBackgroundColor(Color.argb(alpha, red, grn, blu));
+        tTempText.setTextColor(Color.argb(alpha, red, grn, blu));
     }
 }
