@@ -24,7 +24,7 @@ public class DeviceListFragment extends ListFragment {
             listener = (OnItemSelectedListener) context;
         } else {
             throw new ClassCastException(context.toString()
-                    + " must implemenet MyListFragment.OnItemSelectedListener");
+                    + " must implement MyListFragment.OnItemSelectedListener");
         }
     }
 

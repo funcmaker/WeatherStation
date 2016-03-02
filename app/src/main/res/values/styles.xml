@@ -3,7 +3,7 @@
     <!-- Base application theme. -->
     <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
         <!-- Customize your theme here. -->
-        <item name="android:backgroundTint" >#d9fbff</item>
+        <item name="android:backgroundTint" >#e2f1f4</item>
         <item name="android:textColorPrimary" >#000000</item>
         <item name="android:navigationBarColor">#1565C0</item>
     </style>

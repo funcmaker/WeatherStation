@@ -270,7 +270,7 @@ public class BluetoothService extends Service {
                 O = mPressCalibration[5] * pow(2, 14) + mPressCalibration[6] * temp_raw / pow(2, 3) + ((mPressCalibration[7] * temp_raw / pow(2, 15)) * temp_raw) / pow(2, 4);
                 press_act = (S * press_raw + O) / pow(2, 14);
 
-                Log.d(TAG, String.format("Press: %fin. Hg", press_act * 0.000296));
+                Log.d(TAG, String.format("Press: %f in. Hg", press_act * 0.000296));
 
                 intent = new Intent(PRESS_DATA);
                 intent.putExtra(PRESS_DATA, press_act);

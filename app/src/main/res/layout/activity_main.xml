@@ -1,138 +1,153 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
+    android:layout_width="match_parent"
     android:id="@+id/main_layout"
     android:layout_height="match_parent"
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
     android:paddingBottom="@dimen/activity_vertical_margin"
-    tools:context=".MainActivity">
+    android:weightSum="1">
 
-    <TextView
+    <LinearLayout
+        android:orientation="vertical"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:id="@+id/text_temp"
-        android:text="Ambient Temperature"
-        android:textStyle="bold"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true"/>
+        android:layout_centerHorizontal="true">
 
-    <TextView
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:id="@+id/text_temp"
+            android:text="Ambient Temperature"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/dashes"
+            android:id="@+id/data_ambient_temp"
+            android:layout_gravity="center_horizontal" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:orientation="vertical"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:id="@+id/text_humid"
-        android:layout_marginTop="82dp"
-        android:textStyle="bold"
-        android:text="Humidity"
-        android:layout_below="@+id/text_temp"
-        android:layout_centerHorizontal="true" />
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="60dp">
 
-    <TextView
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:id="@+id/text_press"
+            android:text="Pressure"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/dashes"
+            android:id="@+id/data_press"
+            android:layout_gravity="center_horizontal" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:orientation="vertical"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:id="@+id/text_press"
-        android:layout_marginTop="90dp"
-        android:text="Pressure"
-        android:textStyle="bold"
-        android:layout_below="@+id/text_humid"
-        android:layout_centerHorizontal="true" />
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="120dp">
 
-    <TextView
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:id="@+id/text_humid"
+            android:textStyle="bold"
+            android:text="Humidity" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/dashes"
+            android:id="@+id/data_humid"
+            android:layout_gravity="center_horizontal" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:orientation="horizontal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:text="@string/label_device_name"
-        android:id="@+id/text_device_name"
-        android:textSize="10sp"
+        android:layout_weight="1"
         android:layout_alignParentBottom="true"
         android:layout_alignParentStart="true"
-        android:textColor="#000000" />
+        android:id="@+id/linearLayout">
 
-     <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:text="@string/label_state"
-        android:id="@+id/text_device_state"
-        android:textSize="10sp"
-        android:layout_marginStart="120dp"
-        android:layout_alignParentBottom="true"
-        android:layout_toEndOf="@+id/text_device_address"
-        android:textColor="#000000" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="@string/label_device_name"
+            android:id="@+id/text_device_name"
+            android:textSize="10sp"
+            android:textColor="#000000" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:id="@+id/data_device_name"
+            android:textSize="10sp"
+            android:textColor="#000000" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:text="@string/label_device_address"
-        android:id="@+id/text_device_address"
-        android:textSize="10sp"
-        android:layout_marginStart="60dp"
-        android:layout_alignParentBottom="true"
-        android:layout_toEndOf="@+id/data_device_name"
-        android:textColor="#000000" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="@string/label_device_address"
+            android:id="@+id/text_device_address"
+            android:textSize="10sp"
+            android:layout_marginStart="10dp"
+            android:textColor="#000000" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:id="@+id/data_device_name"
-        android:textSize="10sp"
-        android:layout_alignParentBottom="true"
-        android:layout_toEndOf="@+id/text_device_name"
-        android:textColor="#000000" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:id="@+id/data_device_address"
+            android:textSize="10sp"
+            android:textColor="#000000" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:id="@+id/data_device_address"
-        android:textSize="10sp"
-        android:layout_alignParentBottom="true"
-        android:layout_toEndOf="@+id/text_device_address"
-        android:textColor="#000000" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="@string/label_state"
+            android:id="@+id/text_device_state"
+            android:textSize="10sp"
+            android:layout_marginStart="10dp"
+            android:textColor="#000000" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/data_device_state"
-        android:textColor="#000000"
-        android:textSize="10sp"
-        android:layout_alignParentBottom="true"
-        android:layout_toEndOf="@+id/text_device_state" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="@string/dashes"
-        android:id="@+id/data_ambient_temp"
-        android:layout_marginTop="25dp"
-        android:layout_below="@+id/text_temp"
-        android:layout_centerHorizontal="true" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="@string/dashes"
-        android:id="@+id/data_humid"
-        android:layout_marginTop="25dp"
-        android:layout_below="@+id/text_humid"
-        android:layout_centerHorizontal="true" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="@string/dashes"
-        android:id="@+id/data_press"
-        android:layout_marginTop="25dp"
-        android:layout_below="@+id/text_press"
-        android:layout_centerHorizontal="true" />
-
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/data_device_state"
+            android:textColor="#000000"
+            android:textSize="10sp" />
+    </LinearLayout>
 
 </RelativeLayout>
+
+
+
+
+
+
+
+
