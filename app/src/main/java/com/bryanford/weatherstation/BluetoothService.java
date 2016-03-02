@@ -15,9 +15,14 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
-import java.util.List;
 
-/*
+import java.util.HashMap;
+import java.util.List;
+import java.util.UUID;
+
+import static java.lang.Math.pow;
+
+/**
  * Service for managing connection and data communication with a GATT server hosted on a
  * given Bluetooth LE device.
  */
@@ -39,18 +44,26 @@ public class BluetoothService extends Service {
             "com.bryanford.weatherstation.ACTION_DATA_AVAILABLE";
     public final static String RX_DATA =
             "com.bryanford.weatherstation.RX_DATA";
-    public final static String TEMP_DATA =
-            "com.bryanford.weatherstation.TEMP_DATA";
+    public final static String TEMP_ACT_DATA =
+            "com.bryanford.weatherstation.TEMP_ACT_DATA";
+    public final static String TEMP_IR_DATA =
+            "com.bryanford.weatherstation.TEMP_IR_DATA";
     public final static String PRESS_DATA =
             "com.bryanford.weatherstation.PRESS_DATA";
     public final static String HUMID_DATA =
             "com.bryanford.weatherstation.HUMID_DATA";
 
+    private final IBinder mBinder = new LocalBinder();
+
+    private HashMap<UUID, BluetoothGattService> mGattServiceMap = new HashMap<>();
+    private List<BluetoothGattService> mGattServices;
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothGatt mBluetoothGatt;
-    private String mBluetoothDeviceAddress;
+
     private int mConnectionState = STATE_DISCONNECTED;
+    private int[] mPressCalibration;
+    private  int mState;
 
     // Implements callback methods for GATT events that the app cares about.  For example,
     // connection change and services discovered.
@@ -59,20 +72,33 @@ public class BluetoothService extends Service {
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             String intentAction;
 
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
+            if (status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED) {
                 intentAction = ACTION_GATT_CONNECTED;
                 mConnectionState = STATE_CONNECTED;
-                broadcastUpdate(intentAction);
-                Log.i(TAG, "Connected to GATT server.");
+
                 // Attempts to discover services after successful connection.
-                Log.i(TAG, "Attempting to start service discovery:" +
+                Log.i(TAG, "Connected to GATT server.");
+                Log.i(TAG, "Attempting to start service discovery: " +
                         mBluetoothGatt.discoverServices());
 
+                broadcastUpdate(intentAction);
             }
-            else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+            else if (status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_DISCONNECTED) {
                 intentAction = ACTION_GATT_DISCONNECTED;
                 mConnectionState = STATE_DISCONNECTED;
+
                 Log.i(TAG, "Disconnected from GATT server.");
+
+                broadcastUpdate(intentAction);
+            } else if (status != BluetoothGatt.GATT_SUCCESS) {
+                // Disconnect on failed status
+                mBluetoothGatt.disconnect();
+
+                intentAction = ACTION_GATT_DISCONNECTED;
+                mConnectionState = STATE_DISCONNECTED;
+
+                Log.i(TAG, "Disconnected from GATT server.");
+
                 broadcastUpdate(intentAction);
             }
         }
@@ -80,6 +106,14 @@ public class BluetoothService extends Service {
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
+                // Get all of the services
+                mGattServices = mBluetoothGatt.getServices();
+
+                for (BluetoothGattService s : mGattServices) {
+                    // Add all of the services to a hash map for easier access
+                    mGattServiceMap.put(s.getUuid(), s);
+                }
+
                 broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
             } else {
                 Log.w(TAG, "onServicesDiscovered received: " + status);
@@ -88,9 +122,8 @@ public class BluetoothService extends Service {
 
         @Override
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
+                nextSensorNotify(mBluetoothGatt);
                 broadcastUpdate(characteristic);
-            }
         }
 
         @Override
@@ -100,34 +133,108 @@ public class BluetoothService extends Service {
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            // When the configuration characteristic is wrote to the sensor this callback detects
-            // it and sets up notifications for both client and service
-            if (DeviceTags.HUMIDITY_CONFIG_CHAR.equals(characteristic.getUuid())) {
-                characteristic = gatt.getService(DeviceTags.HUMIDITY_SERVICE)
-                        .getCharacteristic(DeviceTags.HUMIDITY_DATA_CHAR);
+                nextSensorRead(mBluetoothGatt);
+        }
 
-                // Set the notification bit
-                setCharacteristicNotification(characteristic, true);
-                BluetoothGattDescriptor desc = characteristic.getDescriptor(
-                        DeviceTags.CLIENT_CONFIG_DESCRIPTOR);
-
-                desc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                writeDescriptor(desc);
-            }
-            else if (DeviceTags.PRESSURE_CONFIG_CHAR.equals(characteristic.getUuid())) {
-                characteristic = gatt.getService(DeviceTags.PRESSURE_SERVICE)
-                        .getCharacteristic(DeviceTags.PRESSURE_DATA_CHAR);
-
-                // Set the notification bit
-                setCharacteristicNotification(characteristic, true);
-                BluetoothGattDescriptor desc = characteristic.getDescriptor(
-                        DeviceTags.CLIENT_CONFIG_DESCRIPTOR);
-
-                desc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                writeDescriptor(desc);
-            }
+        @Override
+        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+            nextSensorEnable(mBluetoothGatt, false);
         }
     };
+
+    private void nextSensorEnable(BluetoothGatt gatt, boolean reset) {
+        BluetoothGattCharacteristic characteristic;
+
+        // Start at zero if reset is true else advance
+        if (reset) { mState = 0; }
+        else { mState++; }
+
+        switch (mState) {
+            case 0:
+                // Enable pressure calibration
+                characteristic = gatt.getService(DeviceTags.PRESSURE_SERVICE)
+                        .getCharacteristic(DeviceTags.PRESSURE_CONFIG_CHAR);
+                characteristic.setValue(new byte[]{0x02});
+                break;
+            case 1:
+                // Enable pressure characteristic
+                characteristic = gatt.getService(DeviceTags.PRESSURE_SERVICE)
+                        .getCharacteristic(DeviceTags.PRESSURE_CONFIG_CHAR);
+                characteristic.setValue(new byte[]{0x01});
+                break;
+            case 2:
+                // Find humidity service and enable notifications
+                characteristic = gatt.getService(DeviceTags.HUMIDITY_SERVICE)
+                        .getCharacteristic(DeviceTags.HUMIDITY_CONFIG_CHAR);
+                characteristic.setValue(new byte[]{0x01});
+                break;
+            default:
+                Log.i(TAG, "All sensors enabled!");
+                return;
+        }
+
+        writeCharacteristic(characteristic);
+    }
+
+    private void nextSensorRead(BluetoothGatt gatt) {
+        BluetoothGattCharacteristic characteristic;
+
+        switch (mState) {
+            case 0:
+                // Read pressure calibration
+                characteristic = gatt.getService(DeviceTags.PRESSURE_SERVICE)
+                        .getCharacteristic(DeviceTags.PRESSURE_CAL_CHAR);
+                break;
+            case 1:
+                // Read pressure characteristic
+                characteristic = gatt.getService(DeviceTags.PRESSURE_SERVICE)
+                        .getCharacteristic(DeviceTags.PRESSURE_DATA_CHAR);
+                break;
+            case 2:
+                // Find humidity service and read it
+                characteristic = gatt.getService(DeviceTags.HUMIDITY_SERVICE)
+                        .getCharacteristic(DeviceTags.HUMIDITY_DATA_CHAR);
+                break;
+            default:
+                Log.i(TAG, "All sensors enabled!");
+                return;
+        }
+
+        readCharacteristic(characteristic);
+    }
+
+    private void nextSensorNotify(BluetoothGatt gatt) {
+        BluetoothGattCharacteristic characteristic;
+
+        switch (mState) {
+            case 0:
+                // Enable pressure calibration
+                characteristic = gatt.getService(DeviceTags.PRESSURE_SERVICE)
+                        .getCharacteristic(DeviceTags.PRESSURE_CAL_CHAR);
+                break;
+            case 1:
+                // Enable pressure characteristic
+                characteristic = gatt.getService(DeviceTags.PRESSURE_SERVICE)
+                        .getCharacteristic(DeviceTags.PRESSURE_DATA_CHAR);
+                break;
+            case 2:
+                // Find humidity service and enable notifications
+                characteristic = gatt.getService(DeviceTags.HUMIDITY_SERVICE)
+                        .getCharacteristic(DeviceTags.HUMIDITY_DATA_CHAR);
+                break;
+            default:
+                Log.i(TAG, "All sensors enabled!");
+                return;
+        }
+        // Enable local notifications
+        setCharacteristicNotification(characteristic, true);
+
+        // Enable notification on device
+        BluetoothGattDescriptor desc =
+                characteristic.getDescriptor(DeviceTags.CLIENT_CONFIG_DESCRIPTOR2);
+        desc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+        writeDescriptor(desc);
+    }
 
     private void broadcastUpdate(final String action) {
         final Intent intent = new Intent(action);
@@ -138,10 +245,37 @@ public class BluetoothService extends Service {
         final Intent intent;
 
         if (DeviceTags.PRESSURE_CAL_CHAR.equals(characteristic.getUuid())) {
-            // Needs work!
+            mPressCalibration = new int[8];
+
+            // Extract the calibration data
+            mPressCalibration[0] = shortUnsignedAtOffset(characteristic, 0);
+            mPressCalibration[1] = shortUnsignedAtOffset(characteristic, 2);
+            mPressCalibration[2] = shortUnsignedAtOffset(characteristic, 4);
+            mPressCalibration[3] = shortUnsignedAtOffset(characteristic, 6);
+            mPressCalibration[4] = shortUnsignedAtOffset(characteristic, 8);
+            mPressCalibration[5] = shortUnsignedAtOffset(characteristic, 10);
+            mPressCalibration[6] = shortUnsignedAtOffset(characteristic, 12);
+            mPressCalibration[7] = shortUnsignedAtOffset(characteristic, 14);
         }
         else if (DeviceTags.PRESSURE_DATA_CHAR.equals(characteristic.getUuid())) {
-            // Same here
+            double press_raw, press_act, temp_raw;
+            double S, O;
+
+            if (mPressCalibration != null) {
+                temp_raw = shortSignedAtOffset(characteristic, 0);
+                press_raw = shortUnsignedAtOffset(characteristic, 2);
+
+                /* temp_act = (100 * (mPressCalibration[0] * temp_raw / pow(2, 8) + mPressCalibration[1] * pow(2, 6))) / pow(2, 16); */
+                S = mPressCalibration[2] + mPressCalibration[3] * temp_raw / pow(2, 17) + ((mPressCalibration[4] * temp_raw / pow(2, 15)) * temp_raw) / pow(2, 19);
+                O = mPressCalibration[5] * pow(2, 14) + mPressCalibration[6] * temp_raw / pow(2, 3) + ((mPressCalibration[7] * temp_raw / pow(2, 15)) * temp_raw) / pow(2, 4);
+                press_act = (S * press_raw + O) / pow(2, 14);
+
+                Log.d(TAG, String.format("Press: %fin. Hg", press_act * 0.000296));
+
+                intent = new Intent(PRESS_DATA);
+                intent.putExtra(PRESS_DATA, press_act);
+                sendBroadcast(intent);
+            }
         }
         else if (DeviceTags.HUMIDITY_DATA_CHAR.equals(characteristic.getUuid())) {
             double temp = -46.85 + 175.72/65536 * (double)shortSignedAtOffset(characteristic, 0);
@@ -158,7 +292,7 @@ public class BluetoothService extends Service {
             Log.d(TAG, String.format("Humid: %f", humid));
 
             intent = new Intent(HUMID_DATA);
-            intent.putExtra(TEMP_DATA, temp);
+            intent.putExtra(TEMP_ACT_DATA, temp);
             intent.putExtra(HUMID_DATA, humid);
             sendBroadcast(intent);
         }
@@ -203,8 +337,6 @@ public class BluetoothService extends Service {
         return super.onUnbind(intent);
     }
 
-    private final IBinder mBinder = new LocalBinder();
-
     /**
      * Initializes a reference to the local Bluetooth adapter.
      *
@@ -226,7 +358,6 @@ public class BluetoothService extends Service {
             Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
             return false;
         }
-
         return true;
     }
 
@@ -255,11 +386,11 @@ public class BluetoothService extends Service {
             Log.w(TAG, "Device not found.  Unable to connect.");
             return false;
         }
+
         // We want to directly connect to the device, so we are setting the autoConnect
         // parameter to false.
         mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
         Log.d(TAG, "Trying to create a new connection.");
-        mBluetoothDeviceAddress = address;
         mConnectionState = STATE_CONNECTING;
         return true;
     }
@@ -325,16 +456,21 @@ public class BluetoothService extends Service {
      * Enables or disables notification on a give characteristic.
      *
      * @param characteristic Characteristic to act on.
-     * @param enabled If true, enable notification.  False otherwise.
+     * @param enable If true, enable notification.  False otherwise.
      */
     public void setCharacteristicNotification(BluetoothGattCharacteristic characteristic,
-                                              boolean enabled) {
+                                              boolean enable) {
         if (mBluetoothAdapter == null || mBluetoothGatt == null) {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
         }
-        mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
+        mBluetoothGatt.setCharacteristicNotification(characteristic, enable);
     }
+
+    public  void startSensorEnable() {
+        nextSensorEnable(mBluetoothGatt, true);
+    }
+
 
     /**
      * Retrieves a list of supported GATT services on the connected device. This should be
@@ -356,14 +492,14 @@ public class BluetoothService extends Service {
      *
      * This function extracts these 16 bit two's complement values.
      * */
-    private static Integer shortSignedAtOffset(BluetoothGattCharacteristic c, int offset) {
+    public static Integer shortSignedAtOffset(BluetoothGattCharacteristic c, int offset) {
         Integer lowerByte = c.getIntValue(BluetoothGattCharacteristic.FORMAT_SINT8, offset);
         Integer upperByte = c.getIntValue(BluetoothGattCharacteristic.FORMAT_SINT8, offset + 1); // Note: interpret MSB as signed.
 
         return (upperByte << 8) + lowerByte;
     }
 
-    private static Integer shortUnsignedAtOffset(BluetoothGattCharacteristic c, int offset) {
+    public static Integer shortUnsignedAtOffset(BluetoothGattCharacteristic c, int offset) {
         Integer lowerByte = c.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, offset);
         Integer upperByte = c.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, offset + 1); // Note: interpret MSB as unsigned.
 

@@ -50,7 +50,8 @@ public class DeviceTags {
     public static final UUID SERVICE_CHANGED_CHAR     = UUID.fromString("00002a05-0000-1000-8000-00805f9b34fb");
 
     // Client Config Descriptor
-    public static final UUID CLIENT_CONFIG_DESCRIPTOR = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+    public static final UUID CLIENT_CONFIG_DESCRIPTOR1 = UUID.fromString("00002901-0000-1000-8000-00805f9b34fb");
+    public static final UUID CLIENT_CONFIG_DESCRIPTOR2 = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
     public static final UUID MANUFACTURER_NAME_STRING = UUID.fromString("00002a29-0000-1000-8000-00805f9b34fb");
 
     public static final UUID DEVICE_INFO_SERVICE = UUID.fromString("00001800-0000-1000-8000-00805f9b34fb");
@@ -87,7 +88,7 @@ public class DeviceTags {
         attributes.put(UART_CHAR, "UART Characteristic");
 
         // Descriptor
-        attributes.put(CLIENT_CONFIG_DESCRIPTOR, "Client Configuration Descriptor");
+        attributes.put(CLIENT_CONFIG_DESCRIPTOR1, "Client Configuration Descriptor");
 
         // Other
         attributes.put(MANUFACTURER_NAME_STRING, "Manufacturer Name String");

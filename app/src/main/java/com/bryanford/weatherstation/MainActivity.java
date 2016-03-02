@@ -10,6 +10,7 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
 
+import android.os.Handler;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.app.MediaRouteActionProvider;
@@ -80,10 +81,10 @@ public class MainActivity extends AppCompatActivity {
     private GoogleApiClient.ConnectionCallbacks mConnectionCallbacks;
     private ConnectionFailedListener mConnectionFailedListener;
     private WeatherStationChannel mWeatherStationChannel;
+
     private boolean mApplicationStarted = false;
     private boolean mWaitingForReconnect = false;
     private boolean mBtConnected = false;
-
 
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
@@ -126,7 +127,7 @@ public class MainActivity extends AppCompatActivity {
         btAdapter = btManager.getAdapter();
 
         if (btAdapter == null) {
-            Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Bluetooth not supported!", Toast.LENGTH_SHORT).show();
             finish();
         }
 
@@ -269,7 +270,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /* Needed to request location permissions for the app (New requirement to 6.0) */
+    /**
+     * Needed to request location permissions for the app (New requirement to 6.0)
+     */
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         switch (requestCode) {
@@ -568,63 +571,47 @@ public class MainActivity extends AppCompatActivity {
             if (BluetoothService.ACTION_GATT_CONNECTED.equals(action)) {
                 mBtConnected = true;
                 runOnUiThread(updateOnConnection);
+
             } else if (BluetoothService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 runOnUiThread(updateOnDisconnect);
-            } else if (BluetoothService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
-                BluetoothGattCharacteristic characteristic;
 
+            } else if (BluetoothService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
+
+                // May not be needed for now
                 mGattServices = mBluetoothService.getSupportedGattServices();
 
-                for (BluetoothGattService service : mGattServices) {
-                    // Add all of the services to a hashmap for easier access
-                    mGattServiceMap.put(service.getUuid(), service);
-
-                    // Find pressure service and enable notifications
-                    if (service.getUuid().equals(DeviceTags.HUMIDITY_SERVICE)) {
-                        characteristic = service.getCharacteristic(DeviceTags.HUMIDITY_CONFIG_CHAR);
-
-                        // Enable characteristic
-                        characteristic.setValue(new byte[]{0x01});
-                        mBluetoothService.writeCharacteristic(characteristic);
-                    } else if (service.getUuid().equals(DeviceTags.PRESSURE_SERVICE)) {
-                        characteristic = service.getCharacteristic(DeviceTags.PRESSURE_CONFIG_CHAR);
-
-                        // Enable characteristic
-                        characteristic.setValue(new byte[]{0x01});
-                        mBluetoothService.writeCharacteristic(characteristic);
-                    } else if (service.getUuid().equals(DeviceTags.GENERIC_SERVICE)) {
-                        characteristic = service.getCharacteristic(DeviceTags.SERVICE_CHANGED_CHAR);
-                        mBluetoothService.setCharacteristicNotification(characteristic, true);
-                    }
+                for (BluetoothGattService s : mGattServices) {
+                    // Add all of the services to a hash map for easier access
+                    mGattServiceMap.put(s.getUuid(), s);
                 }
-            } else if (BluetoothService.TEMP_DATA.equals(action)) {
-//                runOnUiThread(new Runnable() {
-//                    @Override
-//                    public void run() {
-//                        tTemp.setText(intent.getStringExtra(BluetoothService.TEMP_DATA));
-//                    }
-//                });
+
+                // Begin enabling the sensors on the Gatt device
+                mBluetoothService.startSensorEnable();
+
             } else if (BluetoothService.HUMID_DATA.equals(action)) {
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                double temp = intent.getDoubleExtra(BluetoothService.TEMP_DATA, 0.d);
-                                double humid = intent.getDoubleExtra(BluetoothService.HUMID_DATA, 0.d);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        double temp = intent.getDoubleExtra(BluetoothService.TEMP_ACT_DATA, 0.d);
+                        double humid = intent.getDoubleExtra(BluetoothService.HUMID_DATA, 0.d);
 
-                                tTemp.setText(String.format("%.0f %cF", temp, (char)0x00B0));
-                                tHumid.setText(String.format("%.2f %%", humid));
-                                adjustViewColorByTemp(tView, temp);
-                            }
-                        });
+                        tTemp.setText(String.format("%.0f %cF", temp, (char)0x00B0));
+                        tHumid.setText(String.format("%.2f %%", humid));
+                        adjustViewColorByTemp(tView, temp);
+                    }
+                });
             } else if (BluetoothService.PRESS_DATA.equals(action)) {
-//                runOnUiThread(new Runnable() {
-//                    @Override
-//                    public void run() {
-//                        tPress.setText(intent.getStringExtra(BluetoothService.PRESS_DATA));
-//                    }
-//                });
-            } else if (BluetoothService.ACTION_DATA_AVAILABLE.equals(action)) {
+                runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            double press = intent.getDoubleExtra(BluetoothService.PRESS_DATA, 0.d);
 
+                            // Convert from hPa to mmHg
+                            tPress.setText(String.format("%.2f in. Hg", press * 0.000296));
+                        }
+                    });
+            } else if (BluetoothService.ACTION_DATA_AVAILABLE.equals(action)) {
+                // Nothing to see here
             }
         }
     };
@@ -684,14 +671,14 @@ public class MainActivity extends AppCompatActivity {
         intentFilter.addAction(BluetoothService.ACTION_GATT_CONNECTED);
         intentFilter.addAction(BluetoothService.ACTION_GATT_DISCONNECTED);
         intentFilter.addAction(BluetoothService.ACTION_GATT_SERVICES_DISCOVERED);
+        intentFilter.addAction(BluetoothService.ACTION_DATA_AVAILABLE);
         intentFilter.addAction(BluetoothService.HUMID_DATA);
-        intentFilter.addAction(BluetoothService.TEMP_DATA);
         intentFilter.addAction(BluetoothService.PRESS_DATA);
         return intentFilter;
     }
 
     private void clearDisplayValues() {
-        tTempText.setTextColor(Color.parseColor("#FFFFFF"));
+        tTempText.setTextColor(Color.parseColor("#000000"));
         tTemp.setText(R.string.dashes);
         tHumid.setText(R.string.dashes);
         tPress.setText(R.string.dashes);
